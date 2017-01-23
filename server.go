@@ -10,6 +10,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	reuse "github.com/jbenet/go-reuseport"
 )
 
 // Maximum number of TCP queries before we close the socket.
@@ -373,6 +375,37 @@ func (srv *Server) ListenAndServe() error {
 		return err
 	}
 	return &Error{err: "bad network"}
+}
+
+func (srv *Server) ReuseServe(n int) error {
+	srv.lock.Lock()
+	if srv.started {
+		srv.lock.Unlock()
+		return &Error{err: "server already started"}
+	}
+
+	srv.started = true
+	if srv.UDPSize == 0 {
+		srv.UDPSize = MinMsgSize
+	}
+	srv.lock.Unlock()
+
+	result := make(chan error, n)
+
+	for i := 0; i < n; i++ {
+		go func() {
+			l, err := reuse.ListenPacket(srv.Net, srv.Addr)
+			if err != nil {
+				result <- err
+				return
+			}
+
+			s, _ := l.(*net.UDPConn)
+			result <- srv.serveUDP(s)
+		}()
+	}
+
+	return <-result
 }
 
 // ActivateAndServe starts a nameserver with the PacketConn or Listener
