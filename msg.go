@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"math/rand"
 	"strconv"
+	"sync"
 )
 
 func init() {
@@ -65,6 +66,12 @@ var (
 //
 //	dns.Id = func() uint16 { return 3 }
 var Id func() uint16 = id
+
+var MsgPool = sync.Pool{
+	New: func() interface{} {
+		return new(Msg)
+	},
+}
 
 // id returns a 16 bits random number to be used as a
 // message id. The random provided should be good enough.
@@ -1068,6 +1075,35 @@ func Len(r RR) int { return r.len() }
 
 // Copy returns a new *Msg which is a deep-copy of dns.
 func (dns *Msg) Copy() *Msg { return dns.CopyTo(new(Msg)) }
+
+// ShallowCopy returns a new *Msg which is a shallow-copy of dns.
+func (dns *Msg) ShallowCopy() *Msg {
+	return dns.ShallowCopyTo(new(Msg))
+}
+
+// ShallowCopyTo copies the msg to the given message using shallow-copy and
+// returns the copy. Make sure all the RR will not be changed
+func (dns *Msg) ShallowCopyTo(r1 *Msg) *Msg {
+	r1.MsgHdr = dns.MsgHdr
+	r1.Compress = dns.Compress
+	r1.Question = dns.Question
+
+	if len(dns.Answer) > 0 {
+		r1.Answer = make([]RR, len(dns.Answer))
+		copy(r1.Answer, dns.Answer)
+	}
+
+	if len(dns.Ns) > 0 {
+		r1.Ns = make([]RR, len(dns.Ns))
+		copy(r1.Ns, dns.Ns)
+	}
+
+	if len(dns.Extra) > 0 {
+		r1.Extra = make([]RR, len(dns.Extra))
+		copy(r1.Extra, dns.Extra)
+	}
+	return r1
+}
 
 // CopyTo copies the contents to the provided message using a deep-copy and returns the copy.
 func (dns *Msg) CopyTo(r1 *Msg) *Msg {

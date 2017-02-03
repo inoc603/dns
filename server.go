@@ -585,7 +585,9 @@ func (srv *Server) serve(a net.Addr, h Handler, m []byte, u *net.UDPConn, s *Ses
 		reader = srv.DecorateReader(reader)
 	}
 Redo:
-	req := new(Msg)
+	// req := new(Msg)
+	req := MsgPool.Get().(*Msg)
+	defer MsgPool.Put(req)
 	err := req.Unpack(m)
 	if err != nil { // Send a FormatError back
 		x := new(Msg)
