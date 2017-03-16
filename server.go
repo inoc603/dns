@@ -399,8 +399,11 @@ func (srv *Server) ReuseServe(n int) error {
 				result <- err
 				return
 			}
-
 			s, _ := l.(*net.UDPConn)
+			if err := setUDPSocketOptions(s); err != nil {
+				result <- err
+				return
+			}
 			result <- srv.serveUDP(s)
 		}()
 	}
